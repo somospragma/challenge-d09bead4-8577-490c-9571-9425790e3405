@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: transacciones-financieras
+  profiles:
+    active: dev
+
+server:
+  port: 8080
+  netty:
+    connection-timeout: 2s
+    idle-timeout: 15s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        recordExceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.util.concurrent.TimeoutException
+          - com.transaccionesfinancieras.domain.exception.TimeoutBuroException
+          - com.transaccionesfinancieras.domain.exception.Respuesta5xxException
+    instances:
+      buroRiesgo:
+        baseConfig: default
+        failureRateThreshold: 60
+        waitDurationInOpenState: 10s
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.util.concurrent.TimeoutException
+          - com.transaccionesfinancieras.domain.exception.TimeoutBuroException
+    instances:
+      buroRiesgo:
+        baseConfig: default
+  bulkhead:
+    configs:
+      default:
+        maxConcurrentCalls: 20
+        maxWaitDuration: 500ms
+    instances:
+      buroRiesgo:
+        baseConfig: default
+
+app:
+  buro-riesgo:
+    base-url: http://localhost:8081/api
+    timeout: 2000
+  motor-antifraude:
+    base-url: http://localhost:8082/api
+    timeout: 1500
